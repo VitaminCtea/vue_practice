@@ -1,67 +1,42 @@
 <template>
     <div class="hello">
-        <h1>{{ msg }}</h1>
-        <p>{{ value }}</p>
-        <slot></slot>
-        <br/>
-        <a :[dynamicHref]="url">动态参数</a>
         <BaseCountDown
                 :date="{ day: 1, hour: 4, minutes: 10, seconds: 30 }"
                 :prop-callback="printCountDownOverInfo"/>
-        <ul>
-            <template v-for="item in items">
-                <li :key="item.id">{{ item.msg }}</li>
-                <li class="divider" role="presentation" :key="item.msg"></li>
-            </template>
-        </ul>
-        <ul v-if="todos.length">
-            <li v-for="todo of filterTodos" :key="todo.id">{{ todo.text }}</li>
-        </ul>
-        {{ text }}
-        <form @submit.prevent="addNewTodo">
-            <label for="new-todo">Add a todo</label>
-            <input v-model="newTodoText" id="new-todo" placeholder="E.g. Feed the cat"/>
-            <button>Add</button>
-        </form>
-        <ul>
-            <li
-                    is="todo-items"
-                    v-for="(todo, index) in todos2"
-                    :key="todo.id"
-                    :text="todo.text"
-                    @remove="todos2.splice(index, 1)"
-            />
-        </ul>
-        <base-slot>
-            <template #header>
-                <h5>Here might be a page title</h5>
-            </template>
-            <p>A paragraph for the main content.</p>
-            <p>And another one.</p>
-            <template #footer>
-                <p>Here's some contact info</p>
-            </template>
-        </base-slot>
+
+        <BaseRadar
+            :width="400"
+            :height="400"
+            :data="[ 'BMI', '高血脂', '糖尿病史', '年龄', '吸烟情况', '高血压病史' ]"
+            :legend="{
+                data: ['当前风险: 0.03%', '理想风险: 0.01%', '华为Mate系列手机'],
+                colors: ['#ff0000', '#56A3F1', '#d90086'],
+                margin: 20
+            }"
+        />
+
         <form action="">
             <base-input v-model="username" label="username" :required="true" placeholder="Enter your username"/>
             <input type="submit" @click.prevent=""/>
         </form>
-        <base-ul @click.native="removeItem"/>
     </div>
 </template>
 
 <script lang="ts">
 import {Component, Model, Prop, Vue, Watch} from 'vue-property-decorator'
-import TodoItems from '@/components/TodoItems.vue'
 import BaseInput from '@/common/BaseInput.vue'
-import BaseUl from '@/common/BaseUl.vue'
-import BaseSlot from '@/common/BaseSlot.vue'
 import BaseCountDown from "@/common/BaseCountDown.vue"
+import BaseRadar from '@/common/BaseRadar.vue'
 import { BST } from "@/utils"
+import { stringify } from "@/utils/stringify"
+import { nextTick, withMacroTask } from "@/utils/nextTick"
+
+type DateRange<T extends boolean = boolean> = { days: number; isFuture?: T; isContainToday?: T; separator?: string }
 
 const bst = new BST<string, number>()
 const data = ['S', 'E', 'A', 'R', 'C', 'H', 'E', 'X', 'A', 'M', 'P', 'L', 'E', 'V', 'Y', 'Z']
 data.forEach((item, index) => bst.put(item, index))
+
 console.log(bst)
 console.log(`获取BST树中A的值: ${ bst.get('A') }`)
 console.log(`BST树中最大值是: ${ bst.max() }`)
@@ -78,67 +53,58 @@ console.log(`BST key R 的排名: ${ bst.rank('R') }`)
 console.log(bst.keys())
 console.log(bst.rangeKeys('F', 'T'))
 
-type DateRange<T extends boolean = boolean> = { days: number; isFuture?: T; isContainToday?: T; separator?: string }
-
-class TrieNode {
-    public val: any = null
-    public next: TrieNode = Object.create(null) as TrieNode
+const strategyForm = {
+    empty<T extends string>(val: T, errorMsg: T) {
+        if (!val) return errorMsg
+    },
+    minLength<T extends string>(val: T, len: number, errorMsg: T) {
+        if (val.length < len) return errorMsg
+    },
+    checkPhone<T extends string>(val: T, errorMsg: T) {
+        if (!/^1(?=(3|5|7|8[0-9]))(?=[0-9]{4}[0-9]{4})\d{10}$/.test(val) && val.length !== 11) return errorMsg
+    }
 }
 
-class Tire {
-    private root: TrieNode | null = null
-    private n: number = 0
+class Validator {
+    private readonly checkRules: Function[] = []
 
-    public put(key: string | null, val: number) {
-        if (key === null) throw new TypeError('first argument to put() is null')
-        this.root = this.innerPut(this.root, key, val, 0)
+    public addRule<T extends string>(val: T, rules: { strategy: T; errorMessage: T }[]) {
+        rules.forEach(rule => {
+            const checkInfo = rule.strategy.split(':')
+            this.checkRules.push(() => {
+                const strategyName = checkInfo.shift()!
+                checkInfo.unshift(val)
+                checkInfo.push(rule.errorMessage)
+                return (strategyForm as any)[strategyName].apply(strategyForm, checkInfo)
+            })
+        })
     }
 
-    private innerPut(node: TrieNode | null, key: string, val: number, index: number) {
-        if (node == null) node = new TrieNode()
-        if (index === key.length) {
-            if (node!.val === null) this.n++
-            node!.val = val
-            return node
+    public checkAllRule() {
+        const len = this.checkRules.length
+        let i = -1
+        while (++i < len) {
+            const errorMessage = this.checkRules[i]()
+            if (errorMessage) return errorMessage
         }
-
-        const k = key.charAt(index)
-        node.next[k as keyof typeof node.next] = this.innerPut(node.next[k as keyof typeof node.next], key, val, index + 1)
-        return node
+        return '规则全部通过校验!'
     }
 }
 
-const tire = new Tire()
-const puts = { by: 4, sea: 6, sells: 1, she: 0, shells: 3, shore: 7, the: 5 }
-console.log(tire)
-Object.entries(puts).forEach(([ key, val ]) => tire.put(key, val))
+const validator = new Validator()
 
-@Component({components: {TodoItems, BaseInput, BaseUl, BaseSlot, BaseCountDown}})
+validator.addRule('1', [{ strategy: 'empty', errorMessage: '用户名不能为空' }])
+validator.addRule('假装么111', [{ strategy: 'minLength:6', errorMessage: '用户名不能少于六位.' }])
+validator.addRule('假装么', [{ strategy: 'minLength:3', errorMessage: '用户名不能少于三位.' }])
+validator.addRule('13556612233', [{ strategy: 'checkPhone', errorMessage: '手机号不正确，请重新输入.' }])
+
+console.log(validator.checkAllRule())
+
+@Component({components: { BaseInput, BaseCountDown, BaseRadar }})
 export default class HelloWorld extends Vue {
-    public dynamicHref = 'href'
-    public url = 'https://cn.vuejs.org/'
-    public items = [
-        {id: 11, msg: '相当于React.Fragment组件'},
-        {id: 21, msg: '可以渲染多个内容'},
-    ]
-    public todos: { id: number; text: string; isComplete: boolean }[] = [
-        {id: 1, text: '丹尼尔‧凯曼：《丈量世界》', isComplete: false},
-        {id: 2, text: '《白鹿原》', isComplete: true},
-        {id: 3, text: '《解忧杂货铺》', isComplete: true},
-        {id: 4, text: '《挪威的森林》', isComplete: false},
-        {id: 5, text: '《资本论》', isComplete: false},
-    ]
-    public todos2: { id: number; text: string }[] = [
-        {id: 1, text: '丹尼尔‧凯曼：《丈量世界》'},
-        {id: 2, text: '《白鹿原》'},
-        {id: 3, text: '《解忧杂货铺》'},
-    ]
-
-    public newTodoText = ''
     public username = ''
     public timer: unknown = null
 
-    @Prop() private msg!: string
     @Prop(Number) readonly propA: number | undefined
     @Prop({default: 'default value'}) readonly propB!: string
     @Prop([String, Boolean]) readonly propC: string | boolean | undefined
@@ -159,28 +125,7 @@ export default class HelloWorld extends Vue {
         console.log('倒计时结束...')
     }
 
-    // $ computed
-    private get filterTodos() {
-        return this.todos.filter(todo => !todo.isComplete)
-    }
-
     // ! Methods
-    private addNewTodo() {
-        if (!this.newTodoText) return
-        this.todos2.push({
-            id: this.todos2[this.todos2.length - 1].id + 1,
-            text: this.newTodoText,
-        })
-        this.newTodoText = ''
-    }
-
-    private removeItem(event: Event) {
-        if ((event.target as HTMLUListElement).nodeName === 'UL') return
-        const parent = (event.target as HTMLLIElement).parentNode
-        const items = (parent as HTMLUListElement).children
-        const findIndex = Array.from(items).findIndex(item => item === event.target)
-        findIndex !== -1 && parent?.removeChild(event.target as HTMLLIElement)
-    }
 
     // ? 动态规划(找零钱问题)
     private coinChange(coins: number[], amount: number) {
@@ -193,8 +138,8 @@ export default class HelloWorld extends Vue {
                 if (currentAmountMoney > i) break
                 const remainingDenominationsOptimalSolution = dp[i - currentAmountMoney]
                 if (
-                        remainingDenominationsOptimalSolution !== -1 &&
-                        (dp[i] === -1 || dp[i] > remainingDenominationsOptimalSolution + 1)
+                    remainingDenominationsOptimalSolution !== -1 &&
+                    (dp[i] === -1 || dp[i] > remainingDenominationsOptimalSolution + 1)
                 )
                     dp[i] = remainingDenominationsOptimalSolution + 1
             }
@@ -303,136 +248,6 @@ export default class HelloWorld extends Vue {
         this.printVuexState({type: 'shellSort', attr: 'posts'})
     }
 
-    // ? 模拟 JSON.stringify 方法
-    private stringify(data: unknown, replacer?: Function | unknown[] | null, space?: number | string): string | undefined {
-        if (typeof data === 'function' && data.name === 'BigInt') throw new TypeError("BigInt value can't be serialized in JSON")
-        if (data === null || Object.is(data, NaN) || data === Infinity || data === -Infinity || typeof data === 'function') return 'null'
-        // 修复 Number、Boolean、String 类型不能被正确的解析成原始值
-        if (typeof data !== 'object') return data === undefined ? undefined : typeof data === 'string' ? `"${ data }"` : `${ data }`
-
-        const prefix = (val: number | string, indent: number, isCloseSymbol = false) => {
-            let length: number
-            let symbol: string
-            if (typeof val === 'string') {
-                let string_length = val.length
-                val = string_length > 10 ? val.substring(0, 10) : val
-                string_length = val.length
-                length = (isCloseSymbol ? string_length * indent - string_length : string_length * indent) / string_length
-                symbol = val
-            } else {
-                length = isCloseSymbol ? val * indent - val : val * indent
-                symbol = ' '
-            }
-            return Array.apply(null, { length } as []).reduce(result => ((result += symbol), result), '')
-        }
-
-        const ignoreSpecificValue = (val: unknown) => typeof val === 'symbol' || typeof val === 'function' || val == null
-
-        const toString = (val: unknown) => Object.prototype.toString.call(val)
-
-        const isObject = (val: unknown): val is Record<string, unknown> => val !== null && toString(val) === '[object Object]'
-
-        const dataTemplate = (space: number | string | undefined, solve: string[], indent: number, isArray = true) => {
-            const [ begin, end ] = isArray ? ['[', ']'] : ['{', '}']
-            // 1.修复结果的字符串不能被JSON.parse()方法解析
-            // 2.修复打印格式，符合JSON.stringify()方法打印格式
-            return (
-                space ?
-                `${ begin }\n${ solve.map(item => `${ prefix(space, indent) }${ item }`).join(',\n') }\n${ prefix(space, indent, true) }${ end }` :
-                `${ begin }${ solve }${ end }`
-            )
-        }
-
-        const cycleCallback = <T extends unknown>(value: T | T[], objs: T[]) => {
-            if (objs.some((obj: T) => obj === value)) return true
-            objs.push(value as T)
-            return hasCycle(value, objs as unknown as T[])
-        }
-
-        const hasCycle = <T extends unknown>(data: T | T[], objs: T[] = []) => {
-            if (Array.isArray(data)) {
-                for (let i = 0; i < data.length; i++) {
-                    if (typeof data[i] !== 'object') continue
-                    if (cycleCallback(data[i], objs)) return true
-                }
-            } else if (typeof data === 'object' && data !== null) {
-                for (const key in data) {
-                    if (Object.prototype.hasOwnProperty.call(data, key)) {
-                        if (typeof data[key] !== 'object' || data[key] === null) continue
-                        if (cycleCallback(data[key], objs as unknown[])) return true
-                    }
-                }
-            }
-            return false
-        }
-
-        const reduce = (data: any, replacer: unknown) => {
-            if (replacer == null) return data
-            type Solve = { [key in keyof typeof data]: unknown }
-            return Object.keys(data).reduce((result, key) => {
-                    const filter = typeof replacer === 'function' ? replacer(key, data[key]) : (replacer as string[]).includes(key)
-                    if (filter) result[key] = data[key]
-                    return result
-                }, {} as Solve)
-        }
-
-        if (space) space = space > 10 ? 10 : space
-
-        let isCheckCycleSuccess = false
-
-        const recursiveFormatting = (data: any, indent = 1) => {
-            if (data == null) return 'null'
-            if (
-                  typeof data !== 'object' ||
-                  typeof data === 'object' && data!.valueOf && [ 'string', 'boolean', 'number' ].some(type => typeof data.valueOf() === type)
-            ) {
-                return typeof data.valueOf() === 'string' ? `"${ data.valueOf() }"` : data
-            }
-
-            const solve: string[] = []
-
-            if (Array.isArray(data)) {
-                data.forEach(item => {
-                    if (ignoreSpecificValue(item)) {
-                        solve.push("null")
-                        return
-                    }
-                    solve.push(recursiveFormatting(item, indent + 1))
-                })
-                return dataTemplate(space, solve, indent)
-            }
-
-            if (isObject(data)) {
-
-                if (!isCheckCycleSuccess) {
-                    isCheckCycleSuccess = true
-                    if (hasCycle(data)) throw new TypeError('cyclic object value')
-                }
-
-                switch (toString(replacer).slice(8, -1)) {
-                    case 'Array':
-                    case 'Function':
-                        data = reduce(data, replacer)
-                        if (!Object.keys(data).length) return '{}'
-                        break
-                }
-
-                Object.keys(data).forEach(key => {
-                    if (ignoreSpecificValue(data[key]) || !Object.prototype.propertyIsEnumerable.call(data, key)) return
-                    // 修复当对象中存在toJSON方法时，不会被调用
-                    if (Object.prototype.hasOwnProperty.call(data[key!], 'toJSON') && typeof data[key!].toJSON === 'function') {
-                        solve.push(`"${ key }":${ space ? ' ' : '' }${ data[key!].toJSON() }`)
-                    }
-                    else solve.push(`"${ key }":${ space ? ' ' : '' }${ recursiveFormatting(data[key],indent + 1) }`)
-                })
-
-                return dataTemplate(space, solve, indent, false)
-            }
-        }
-
-        return recursiveFormatting(data)
-    }
-
     // ? 生命周期钩子
     public mounted() {
         const obj = {
@@ -442,11 +257,17 @@ export default class HelloWorld extends Vue {
         }
         // var obj = {
         //     foo: 'foo',
-        //     toJSON: 1
+        //     toJSON: () => 'bar'
         // }
 
-        const result = this.stringify({ x: obj }, null, '....')
+        const result = stringify({ x: obj }, null, '----')
+        // console.log(JSON.stringify({ x: obj }, null, '----'))
         console.log(result)
+
+        withMacroTask(nextTick.bind(null, function () { console.log('降级宏任务') }) as any)()
+
+        nextTick()!.then(() => console.log('promise nextTick'))
+
         // console.log(JSON.parse(result!))
         console.log(this.coinChange([1, 2, 5, 7, 10], 14))
         console.log('浅粉红(LightPink)十六进制颜色为: ' + this.toHex({r: 255, g: 182, b: 193}))
@@ -459,7 +280,9 @@ export default class HelloWorld extends Vue {
         this.increment()
         this.incrementAsync()
         this.testVuexModule()
+
         console.log(this.solveNQueens(4))
+        console.log(this.createlatelyDays({ days: 7, isContainToday: true }))
     }
 
     destroyed() {

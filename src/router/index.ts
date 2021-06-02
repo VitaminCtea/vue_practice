@@ -12,6 +12,9 @@ const routes: Array<RouteConfig> = [
     {
         path: '/',
         name: 'Home',
+        meta: {
+            home: true
+        },
         components: {
             default: Home,
             mainHeader: MainHeader  // 命名视图，和Home组件同等级渲染
@@ -40,6 +43,7 @@ const routes: Array<RouteConfig> = [
     {
         path: '/user/:id',
         component: User,
+        meta: { user: 'user' },
         children: [
             { path: 'profile', component: Profile },
             { path: 'posts', component: Posts }
@@ -52,6 +56,16 @@ const router = new VueRouter({
     mode: 'history',
     base: process.env.BASE_URL,
     routes,
+    scrollBehavior(to, from, savedPosition) {
+        if (savedPosition) return savedPosition
+        return { x: 0, y: 0 }
+    }
+})
+
+router.beforeEach((to, from, next) => {
+    console.log(to)
+    console.log(from)
+    next()
 })
 
 export default router

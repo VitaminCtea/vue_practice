@@ -10,6 +10,6 @@ import {Component, Prop, Vue} from 'vue-property-decorator'
 
 @Component
 export default class User extends Vue {
-  @Prop(Number) readonly id!: string
+  @Prop(String) readonly id!: string
 }
 </script>
