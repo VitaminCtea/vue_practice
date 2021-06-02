@@ -136,7 +136,7 @@ export default class BaseRadar extends Vue {
         ctx.closePath()
     }
 
-    private drawDangerPolygon<T extends number>(ctx: CustomDefineCtx, r: T) {
+    private drawDangerPolygon(ctx: CustomDefineCtx, r: number) {
         this._drawInnerPolygon(
             ctx,
             [ 20, 0, 0, -20, 0, 0, 20 ] as Offsets,
@@ -149,7 +149,7 @@ export default class BaseRadar extends Vue {
         )
     }
 
-    private drawUserPolygon<T extends number>(ctx: CustomDefineCtx, r: T) {
+    private drawUserPolygon(ctx: CustomDefineCtx, r: number) {
         this._drawInnerPolygon(
             ctx,
             [ 20, null, 0, 60, null, 20, 20 ] as Offsets,
@@ -162,18 +162,12 @@ export default class BaseRadar extends Vue {
         )
     }
 
-    private _drawInnerPolygon<T extends number, S extends string>(
-        ctx: CustomDefineCtx,
-        offsets: Offsets,
-        color: PolygonColor,
-        isDanger: boolean,
-        r: T
-    ) {
+    private _drawInnerPolygon(ctx: CustomDefineCtx, offsets: Offsets, color: PolygonColor, isDanger: boolean, r: number) {
         this.drawInnerPolygonLine(ctx, offsets, color.line, r)
         this.drawInnerPolygonDots(ctx, offsets, color.circle, isDanger, r)
     }
 
-    private drawOuterPolygon<T extends number>(ctx: CustomDefineCtx, polygons: T, enableNonZero: boolean) {
+    private drawOuterPolygon(ctx: CustomDefineCtx, polygons: number, enableNonZero: boolean) {
         ctx.save()
         ctx.beginPath()
         enableNonZero && (ctx.fillStyle = '#f7faff')
@@ -197,7 +191,7 @@ export default class BaseRadar extends Vue {
         ctx.restore()
     }
 
-    private drawInnerPolygonLine<T extends number>(ctx: CustomDefineCtx, offsets: Offsets, color: PolygonColor['line'], r: T) {
+    private drawInnerPolygonLine(ctx: CustomDefineCtx, offsets: Offsets, color: PolygonColor['line'], r: number) {
         const delta = 2 * Math.PI / ctx.sides
         const { lineStrokeColor, lineFillColor } = color
 
@@ -223,13 +217,7 @@ export default class BaseRadar extends Vue {
         ctx.restore()
     }
 
-    private drawInnerPolygonDots<T extends number>(
-        ctx: CustomDefineCtx,
-        offsets: Offsets,
-        color: PolygonColor['circle'],
-        isDanger: boolean,
-        r: T
-    ) {
+    private drawInnerPolygonDots(ctx: CustomDefineCtx, offsets: Offsets, color: PolygonColor['circle'], isDanger: boolean, r: number) {
         const { outerCircleColor, innerCircleColor } = color
         const arc = <T extends number>(ctx: CanvasRenderingContext2D, x: T, y: T, r: T, color: string, anticlockwise: boolean = false) => {
             ctx.save()
@@ -250,8 +238,8 @@ export default class BaseRadar extends Vue {
         }
     }
 
-    private drawMiddleLongLine<T extends number>(ctx: CustomDefineCtx) {
-        const calcCoordinate = (radian: T) => ([ Math.sin(radian) * ctx.r, Math.cos(radian) * ctx.r ])
+    private drawMiddleLongLine(ctx: CustomDefineCtx) {
+        const calcCoordinate = (radian: number) => ([ Math.sin(radian) * ctx.r, Math.cos(radian) * ctx.r ])
         for (let i = 0; i < ctx.sides / 2 /* 六边形中间的长线数量为 3 */; i++) {
             const from = 2 * Math.PI / ctx.sides * i
             const toAngle = (from / Math.PI) * 180 + 180
@@ -266,7 +254,7 @@ export default class BaseRadar extends Vue {
         }
     }
 
-    private drawText<T extends number>(ctx: CustomDefineCtx, data: string[], offset: T = 15 as T) {
+    private drawText(ctx: CustomDefineCtx, data: string[], offset: number = 15) {
         this.beginDrawText(ctx, '10px', 'center', () => {
             const length = Math.min(data.length, ctx.sides)
             for (let i = 0, radian = 0; i < length; i++, radian += 2 * Math.PI / ctx.sides) {
